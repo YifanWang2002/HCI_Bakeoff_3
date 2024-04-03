@@ -1,6 +1,13 @@
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Random;
+import http.requests.*;
+//import javax.xml.bind.DatatypeConverter; // For Base64 encoding
+import org.apache.commons.codec.binary.Base64;
+import java.io.*;
+//import java.awt.image.BufferedImage;
+//import javax.imageio.ImageIO;
+
 
 String[] phrases; //contains all of the phrases
 int totalTrialNum = 2; //the total number of phrases to be tested - set this low for testing. Might be ~10 for the real bakeoff!
@@ -18,8 +25,18 @@ final float sizeOfInputArea = DPIofYourDeviceScreen*1; //aka, 1.0 inches square!
 PImage watch;
 PImage finger;
 
-//Variables for my silly implementation. You can delete this:
-char currentLetter = 'a';
+// Flag to check if the user is currently drawing
+boolean isDrawing = false;
+boolean isGesture = false;
+boolean shouldClear = true;
+
+// Last positions of the mouse, used to draw lines
+float lastMouseX = -1;
+float lastMouseY = -1;
+
+boolean redrawStaticUI = true;
+long lastClickTime = 0;
+
 
 //You can modify anything in here. This is just a basic implementation.
 void setup()
@@ -33,16 +50,26 @@ void setup()
  
   orientation(LANDSCAPE); //can also be PORTRAIT - sets orientation on android device
   size(800, 800); //Sets the size of the app. You should modify this to your device's native size. Many phones today are 1080 wide by 1920 tall.
-  textFont(createFont("Arial", 12)); //set the font to arial 24. Creating fonts is expensive, so make difference sizes once in setup, not draw
+  textFont(createFont("Arial", 28)); //set the font to arial 24. Creating fonts is expensive, so make difference sizes once in setup, not draw
   noStroke(); //my code doesn't use any strokes
+  
+  redrawStaticUI = true;
 }
 
 //You can modify anything in here. This is just a basic implementation.
 void draw()
 {
-  background(255); //clear background
+  if (!isDrawing) {
+    if (shouldClear) {
+      clearBackgroundAndStaticUI();
+      shouldClear = false;
+    }
+  }
   
-   //check to see if the user finished. You can't change the score computation.
+  if (redrawStaticUI) {
+    redrawStaticUI = false;
+  }
+  
   if (finishTime!=0)
   {
     fill(0);
@@ -60,124 +87,133 @@ void draw()
     text("Penalty: " + penalty,400,340);
     text("WPM w/ penalty: " + (wpm-penalty),400,360); //yes, minus, because higher WPM is better
     return;
+  } else{
+  
+  
+  
   }
   
-  drawWatch(); //draw watch background
-  fill(100);
-  rect(width/2-sizeOfInputArea/2, height/2-sizeOfInputArea/2, sizeOfInputArea, sizeOfInputArea); //input area should be 1" by 1"
+  if (shouldClear){
+    drawWatch(); //draw watch background
+    fill(230, 230, 250);
+    stroke(255);
+    strokeWeight(1);
+    rect(width/2-sizeOfInputArea/2, height/2-sizeOfInputArea/2, sizeOfInputArea, sizeOfInputArea); //input area should be 1" by 1"
+    shouldClear = false;
+    }
   
 
-  if (startTime==0 & !mousePressed)
-  {
-    fill(128);
-    textAlign(CENTER);
-    text("Click to start time!", 280, 150); //display this messsage until the user clicks!
-  }
+  else { // If trials are not complete
+    if (shouldClear) {
+      drawWatch(); // Redraw watch background
+      fill(230, 230, 250);
+      rect(width / 2 - sizeOfInputArea / 2, height / 2 - sizeOfInputArea / 2, sizeOfInputArea, sizeOfInputArea); // Input area should be 1" by 1"
+      shouldClear = false;
+    }
 
-  if (startTime==0 & mousePressed)
-  {
-    nextTrial(); //start the trials!
-  }
+    if (startTime == 0 && !mousePressed) {
+      fill(128);
+      textAlign(CENTER);
+      // Only display the "Click to start time!" message if trials haven't started
+      text("Click to start time!", width / 2, height / 4); // Adjusted for visibility
+    }
 
-  if (startTime!=0)
-  {
+    if (startTime == 0 && mousePressed) {
+      nextTrial(); // Start the trials!
+    }
+
+    if (startTime != 0) {
     //feel free to change the size and position of the target/entered phrases and next button 
     textAlign(LEFT); //align the text left
     fill(128);
     text("Phrase " + (currTrialNum+1) + " of " + totalTrialNum, 70, 50); //draw the trial count
     fill(128);
     text("Target:   " + currentPhrase, 70, 100); //draw the target string
-    text("Entered:  " + currentTyped +"|", 70, 140); //draw what the user has entered thus far 
-
-    ////draw very basic next button
-    //fill(255, 0, 0);
-    //rect(600, 600, 200, 200); //draw next button
-    //fill(255);
-    //text("NEXT > ", 650, 650); //draw next label
-
-    ////example design draw code
-    //fill(255, 0, 0); //red button
-    //rect(width/2-sizeOfInputArea/2, height/2-sizeOfInputArea/2+sizeOfInputArea/2, sizeOfInputArea/2, sizeOfInputArea/2); //draw left red button
-    //fill(0, 255, 0); //green button
-    //rect(width/2-sizeOfInputArea/2+sizeOfInputArea/2, height/2-sizeOfInputArea/2+sizeOfInputArea/2, sizeOfInputArea/2, sizeOfInputArea/2); //draw right green button
-    //textAlign(CENTER);
-    //fill(200);
-    //text("" + currentLetter, width/2, height/2-sizeOfInputArea/4); //draw current letter
-    float padding = 5; 
-    float keyWidth = ( sizeOfInputArea / 3 ) - padding;
-    float keyHeight = ( sizeOfInputArea / 5 ) - padding ;
-    String[] keys = {"abcd", "efg", "hijk", "lm", "nopq", "rs", "tuv", "wxyz", " "}; // Space represents the space bar
-    for (int i = 0; i < keys.length; i++) {
-    float x = width / 2 - sizeOfInputArea / 2 + (i % 3) * (keyWidth + padding) + padding;
-    float y = height / 2 - sizeOfInputArea / 2 + (1 + i / 3) * (keyHeight + padding) + padding;
-    
-    fill(200); // Keyboard key background
-    rect(x, y, keyWidth, keyHeight);
-    
-    fill(0); // Text color
-    textAlign(CENTER, CENTER);
-    text(keys[i], x + keyWidth / 2, y + keyHeight / 2);
-  }
-    fill(255, 0, 0); // Red background for delete button
-    rect(width / 2 - sizeOfInputArea / 2, height / 2 + sizeOfInputArea / 2 - keyHeight, sizeOfInputArea, keyHeight);
-    fill(255); // Text color for delete button
-    textAlign(CENTER, CENTER);
-    text("DELETE", width / 2, height / 2 + sizeOfInputArea / 2 - keyHeight / 2);
-    }
-   
-   
-  //drawFinger(); //no longer needed as we'll be deploying to an actual touschreen device
+    text("Entered:  " + currentTyped +"I", 70, 140); //draw what the user has entered thus far 
+    }}
 }
 
-//my terrible implementation you can entirely replace
-boolean didMouseClick(float x, float y, float w, float h) //simple function to do hit testing
-{
-  return (mouseX > x && mouseX<x+w && mouseY>y && mouseY<y+h); //check to see if it is in button bounds
+void clearBackgroundAndStaticUI() {
+  background(255); // Clear the background
+  drawWatch(); // Redraw the watch face
+  // Redraw any other static UI components here (e.g., instructions, borders around the drawing area, etc.)
 }
 
-//my terrible implementation you can entirely replace
-void mousePressed()
-{
-    float keyWidth = sizeOfInputArea / 3;
-  float keyHeight = sizeOfInputArea / 5;
-  float startX = width / 2 - sizeOfInputArea / 2;
-  float startY = height / 2 - sizeOfInputArea / 2 + keyHeight; // Start from the second row
-  float padding = 5;
+void mousePressed() {
+  long clickTime = millis();
+  
+  // Adjusted input area calculations remain the same
+  float inputAreaThirdWidth = sizeOfInputArea / 3;
+  float inputAreaStartX = width / 2 - sizeOfInputArea / 2;
+  float relativeMouseX = mouseX - inputAreaStartX;
 
-  // Adjust for padding around the keys
-  keyWidth -= padding * 2;
-  keyHeight -= padding;
-
-  // Check if delete button was pressed
-  float deleteKeyX = startX + padding;
-  float deleteKeyY = startY + 4 * keyHeight + padding; // Position at the last row with padding
-  float deleteKeyWidth = sizeOfInputArea - (padding * 2); // Full width adjusted for padding
-  float deleteKeyHeight = keyHeight; // Same height as other keys
-
-  // Check if delete key was pressed
-  if (didMouseClick(deleteKeyX, deleteKeyY, deleteKeyWidth, deleteKeyHeight)) {
-    if (currentTyped.length() > 0) {
-      currentTyped = currentTyped.substring(0, currentTyped.length() - 1); // Remove the last character
+  // Adjust the double-click detection threshold if needed, for example, to 500 milliseconds
+  if (clickTime - lastClickTime < 500) { // Consider adjusting this threshold
+    // Double click logic
+    if (relativeMouseX > inputAreaThirdWidth && relativeMouseX < 2 * inputAreaThirdWidth) {
+      // Disable drawing for double click action
+      isDrawing = false;
+      lastMouseX = -1;
+      lastMouseY = -1;
+      // Add your double-click handling logic here (e.g., saving the drawing)
+      saveDrawing();
     }
   } else {
-    // Adjusted positions for keys to include padding
-    for (int i = 0; i < 9; i++) {
-      float x = startX + (i % 3) * (keyWidth + padding * 2);
-      float y = startY + (i / 3) * (keyHeight + padding) - padding;
-      if (didMouseClick(x, y, keyWidth, keyHeight)) {
-        String[] keys = {"a", "e", "h", "l", "n", "r", "t", "w", " "}; // Simplified keys for illustration
-        currentTyped += keys[i];
-        break;
+    // This block now handles single click logic more explicitly
+    // Reset drawing states for a new action
+    lastMouseX = -1;
+    lastMouseY = -1;
+
+    if (relativeMouseX < inputAreaThirdWidth) {
+      // Left third of the input area for space
+      currentTyped += " ";
+      shouldClear = true;
+    } else if (relativeMouseX > 2 * inputAreaThirdWidth) {
+      // Right third of the input area for delete
+      if (currentTyped.length() > 0) {
+        currentTyped = currentTyped.substring(0, currentTyped.length() - 1);
+        shouldClear = true;
       }
+    } else {
+      // Explicit condition to start drawing
+      isDrawing = true;
     }
   }
-  //You are allowed to have a next button outside the 1" area
-  if (didMouseClick(600, 600, 200, 200)) //check if click is in next button
-  {
-    nextTrial(); //if so, advance to next trial
-  }
+
+  lastClickTime = clickTime;
 }
 
+
+void mouseDragged() {
+  // Calculate the bounds of the watch area, assuming the watch image is centered
+  float watchX = width / 2 - (sizeOfInputArea / 2);
+  float watchY = height / 2 - (sizeOfInputArea / 2);
+  float watchWidth = sizeOfInputArea;
+  float watchHeight = sizeOfInputArea;
+  
+
+  // Check if the current mouse position is within the bounds of the watch area
+  if (isDrawing && mouseX >= watchX && mouseX <= watchX + watchWidth && mouseY >= watchY && mouseY <= watchY + watchHeight) {
+    stroke(0); // Set line color
+    strokeWeight(10); // Set line thickness
+
+    if (lastMouseX > -1 && lastMouseY > -1 && lastMouseX >= watchX && lastMouseX <= watchX + watchWidth && lastMouseY >= watchY && lastMouseY <= watchY + watchHeight) {
+      
+      line(lastMouseX, lastMouseY, mouseX, mouseY);
+    }
+
+    lastMouseX = mouseX;
+    lastMouseY = mouseY;
+  }
+   
+}
+
+
+void mouseReleased() {
+  isDrawing = false; // Ensure drawing is disabled when the mouse is released
+  lastMouseX = -1; // Reset the last drawing positions to prevent unwanted lines
+  lastMouseY = -1;
+}
 
 void nextTrial()
 {
@@ -240,6 +276,109 @@ void nextTrial()
   //currentPhrase = "abc"; // uncomment this to override the test phrase (useful for debugging)
 }
 
+//void saveDrawing() {
+//  float watchX = width / 2 - (sizeOfInputArea / 2);
+//  float watchY = height / 2 - (sizeOfInputArea / 2);
+
+//  PImage drawing = get(int(watchX), int(watchY), int(sizeOfInputArea), int(sizeOfInputArea));
+  
+//  byte[] imageBytes = pimageToJPEG(drawing);
+
+//  // Use Apache Commons Codec for Base64 encoding
+//  byte[] encoded = Base64.encodeBase64(imageBytes);
+//  String encodedImage = new String(encoded);
+
+//  // Now send the encoded image as part of a POST request
+//  sendEncodedImage(encodedImage);
+//}
+
+//byte[] pimageToJPEG(PImage img) {
+//  // Convert PImage to a byte array in JPEG format
+//  ByteArrayOutputStream baos = new ByteArrayOutputStream();
+//  BufferedImage bimg = (BufferedImage) img.getNative();
+//  try {
+//    ImageIO.write(bimg, "jpg", baos);
+//  } catch (IOException e) {
+//    e.printStackTrace();
+//  }
+//  return baos.toByteArray();
+//}
+void saveDrawing() {
+  // Specify a path for the temporary file
+  String tempImagePath = "temp_image.jpg";
+
+  // Save the PImage drawing to the file system
+  savePImageToFile(tempImagePath);
+
+  // Convert the saved image file to a byte array
+  byte[] imageBytes = fileToByteArray(tempImagePath);
+
+  // Encode the byte array to Base64
+  byte[] encoded = Base64.encodeBase64(imageBytes);
+  String encodedImage = new String(encoded);
+
+  // Now send the encoded image as part of a POST request
+  sendEncodedImage(encodedImage);
+
+  // Optionally, delete the temporary file to clean up
+  deleteTempFile(tempImagePath);
+}
+
+void savePImageToFile(String filename) {
+  // Obtain the PImage from the drawing area
+  PImage drawing = get(int(width / 2 - sizeOfInputArea / 2), int(height / 2 - sizeOfInputArea / 2), int(sizeOfInputArea), int(sizeOfInputArea));
+  drawing.save(filename); // Save the PImage to a file
+}
+
+byte[] fileToByteArray(String filename) {
+  ByteArrayOutputStream baos = new ByteArrayOutputStream();
+  File file = new File(sketchPath(filename));
+  try {
+    FileInputStream fis = new FileInputStream(file);
+    byte[] byteChunk = new byte[4096]; // Or some other size for the buffer
+    int n;
+
+    while ((n = fis.read(byteChunk)) > 0) {
+      baos.write(byteChunk, 0, n);
+    }
+    fis.close();
+  } catch (IOException e) {
+    e.printStackTrace();
+  }
+  return baos.toByteArray();
+}
+
+void deleteTempFile(String filename) {
+  File file = new File(sketchPath(filename));
+  if (file.exists()) {
+    file.delete();
+  }
+}
+
+void sendEncodedImage(String encodedImage) {
+  // Create a POST request to send the Base64-encoded image
+  PostRequest post = new PostRequest("https://c393-174-181-61-232.ngrok-free.app/upload/");
+  post.addData("image", encodedImage);
+  post.send(); // Send the request
+  
+  // Print the response in the console
+  String responseContent = post.getContent();
+  
+  JSONObject jsonResponse = JSONObject.parse(responseContent);
+  if (jsonResponse != null) {
+    // Extract the letter from the JSON response
+    String letter = jsonResponse.getString("letter");
+    System.out.println("Letter from server: " + letter);
+    currentTyped += letter;
+    
+  } else {
+    System.out.println("Failed to parse JSON response.");
+  }
+  
+  shouldClear = true;
+}
+
+
 //probably shouldn't touch this - should be same for all teams.
 void drawWatch()
 {
@@ -251,25 +390,6 @@ void drawWatch()
   image(watch, 0, 0);
   popMatrix();
 }
-
-//probably shouldn't touch this - should be same for all teams.
-void drawFinger()
-{
-  float fingerscale = DPIofYourDeviceScreen/150f; //normalizes the image size
-  pushMatrix();
-  translate(mouseX, mouseY);
-  scale(fingerscale);
-  imageMode(CENTER);
-  image(finger,52,341);
-  if (mousePressed)
-     fill(0);
-  else
-     fill(255);
-  ellipse(0,0,5,5);
-
-  popMatrix();
-  }
-  
 
 //=========SHOULD NOT NEED TO TOUCH THIS METHOD AT ALL!==============
 int computeLevenshteinDistance(String phrase1, String phrase2) //this computers error between two strings
