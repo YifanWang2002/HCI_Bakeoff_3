@@ -18,6 +18,10 @@ final float sizeOfInputArea = DPIofYourDeviceScreen*1; //aka, 1.0 inches square!
 PImage watch;
 PImage finger;
 
+//New varaible declared
+boolean zoomin = false;
+String currentkey = "";
+
 //Variables for my silly implementation. You can delete this:
 char currentLetter = 'a';
 
@@ -89,11 +93,11 @@ void draw()
     text("Target:   " + currentPhrase, 70, 100); //draw the target string
     text("Entered:  " + currentTyped +"|", 70, 140); //draw what the user has entered thus far 
 
-    ////draw very basic next button
-    //fill(255, 0, 0);
-    //rect(600, 600, 200, 200); //draw next button
-    //fill(255);
-    //text("NEXT > ", 650, 650); //draw next label
+    //draw very basic next button
+    fill(255, 0, 0);
+    rect(600, 600, 200, 200); //draw next button
+    fill(255);
+    text("NEXT > ", 650, 650); //draw next label
 
     ////example design draw code
     //fill(255, 0, 0); //red button
@@ -103,30 +107,65 @@ void draw()
     //textAlign(CENTER);
     //fill(200);
     //text("" + currentLetter, width/2, height/2-sizeOfInputArea/4); //draw current letter
-    float padding = 5; 
+    if(!zoomin){
+      float padding = 0; 
+      float keyWidth = ( sizeOfInputArea / 3 ) - padding;
+      float keyHeight = ( sizeOfInputArea / 5 ) - padding ;
+      String[] keys = {"abcd", "efg", "hijk", "lm", "nopq", "rs", "tuv", "wxyz", " "}; // Space represents the space bar
+      for (int i = 0; i < keys.length; i++) {
+        float x = width / 2 - sizeOfInputArea / 2 + (i % 3) * (keyWidth + padding) + padding;
+        float y = height / 2 - sizeOfInputArea / 2 + (1 + i / 3) * (keyHeight + padding) + padding;
+      
+        fill(200); // Keyboard key background
+        rect(x, y, keyWidth, keyHeight);
+        
+        fill(0); // Text color
+        textAlign(CENTER, CENTER);
+        text(keys[i], x + keyWidth / 2, y + keyHeight / 2);
+      }
+      fill(255, 0, 0); // Red background for delete button
+      rect(width / 2 - sizeOfInputArea / 2, height / 2 + sizeOfInputArea / 2 - keyHeight, sizeOfInputArea, keyHeight);
+      fill(255); // Text color for delete button
+      textAlign(CENTER, CENTER);
+      text("DELETE", width / 2, height / 2 + sizeOfInputArea / 2 - keyHeight / 2);
+      }
+      else{
+        drawzoomin();
+      }
+   
+    }
+   
+  //drawFinger(); //no longer needed as we'll be deploying to an actual touschreen device
+}
+
+void drawzoomin(){
+    float padding = 0; 
     float keyWidth = ( sizeOfInputArea / 3 ) - padding;
     float keyHeight = ( sizeOfInputArea / 5 ) - padding ;
-    String[] keys = {"abcd", "efg", "hijk", "lm", "nopq", "rs", "tuv", "wxyz", " "}; // Space represents the space bar
+    //String[] keys = {"abcd", "efg"}; 
+    //char[] keys = currentkey.toCharArray();
+    //currentTyped += keys[i];
+    String[] keys = new String[currentkey.length()];
+    for (int i = 0; i < currentkey.length(); i++) {
+        keys[i] = String.valueOf(currentkey.charAt(i));
+    }
     for (int i = 0; i < keys.length; i++) {
-    float x = width / 2 - sizeOfInputArea / 2 + (i % 3) * (keyWidth + padding) + padding;
-    float y = height / 2 - sizeOfInputArea / 2 + (1 + i / 3) * (keyHeight + padding) + padding;
-    
-    fill(200); // Keyboard key background
-    rect(x, y, keyWidth, keyHeight);
-    
-    fill(0); // Text color
-    textAlign(CENTER, CENTER);
-    text(keys[i], x + keyWidth / 2, y + keyHeight / 2);
-  }
+        float x = width / 2 - sizeOfInputArea / 2 + (i % 3) * (keyWidth + padding) + padding;
+        float y = height / 2 - sizeOfInputArea / 2 + (1 + i / 3) * (keyHeight + padding) + padding;
+      
+        fill(200); // Keyboard key background
+        stroke(0);
+        rect(x, y, keyWidth, keyHeight);
+        
+        fill(0); // Text color
+        textAlign(CENTER, CENTER);
+        text(keys[i], x + keyWidth / 2, y + keyHeight / 2);
+      }
     fill(255, 0, 0); // Red background for delete button
     rect(width / 2 - sizeOfInputArea / 2, height / 2 + sizeOfInputArea / 2 - keyHeight, sizeOfInputArea, keyHeight);
     fill(255); // Text color for delete button
     textAlign(CENTER, CENTER);
     text("DELETE", width / 2, height / 2 + sizeOfInputArea / 2 - keyHeight / 2);
-    }
-   
-   
-  //drawFinger(); //no longer needed as we'll be deploying to an actual touschreen device
 }
 
 //my terrible implementation you can entirely replace
@@ -138,45 +177,85 @@ boolean didMouseClick(float x, float y, float w, float h) //simple function to d
 //my terrible implementation you can entirely replace
 void mousePressed()
 {
+  if(!zoomin){
     float keyWidth = sizeOfInputArea / 3;
-  float keyHeight = sizeOfInputArea / 5;
-  float startX = width / 2 - sizeOfInputArea / 2;
-  float startY = height / 2 - sizeOfInputArea / 2 + keyHeight; // Start from the second row
-  float padding = 5;
-
-  // Adjust for padding around the keys
-  keyWidth -= padding * 2;
-  keyHeight -= padding;
-
-  // Check if delete button was pressed
-  float deleteKeyX = startX + padding;
-  float deleteKeyY = startY + 4 * keyHeight + padding; // Position at the last row with padding
-  float deleteKeyWidth = sizeOfInputArea - (padding * 2); // Full width adjusted for padding
-  float deleteKeyHeight = keyHeight; // Same height as other keys
-
-  // Check if delete key was pressed
-  if (didMouseClick(deleteKeyX, deleteKeyY, deleteKeyWidth, deleteKeyHeight)) {
-    if (currentTyped.length() > 0) {
-      currentTyped = currentTyped.substring(0, currentTyped.length() - 1); // Remove the last character
-    }
-  } else {
-    // Adjusted positions for keys to include padding
-    for (int i = 0; i < 9; i++) {
-      float x = startX + (i % 3) * (keyWidth + padding * 2);
-      float y = startY + (i / 3) * (keyHeight + padding) - padding;
-      if (didMouseClick(x, y, keyWidth, keyHeight)) {
-        String[] keys = {"a", "e", "h", "l", "n", "r", "t", "w", " "}; // Simplified keys for illustration
-        currentTyped += keys[i];
-        break;
+    float keyHeight = sizeOfInputArea / 5;
+    float startX = width / 2 - sizeOfInputArea / 2;
+    float startY = height / 2 - sizeOfInputArea / 2 + keyHeight; // Start from the second row
+    float padding = 5;
+  
+    // Adjust for padding around the keys
+    keyWidth -= padding * 2;
+    keyHeight -= padding;
+  
+    // Check if delete button was pressed
+    float deleteKeyX = startX + padding;
+    float deleteKeyY = startY + 4 * keyHeight + padding; // Position at the last row with padding
+    float deleteKeyWidth = sizeOfInputArea - (padding * 2); // Full width adjusted for padding
+    float deleteKeyHeight = keyHeight; // Same height as other keys
+  
+    // Check if delete key was pressed
+    if (didMouseClick(deleteKeyX, deleteKeyY, deleteKeyWidth, deleteKeyHeight)) {
+      if (currentTyped.length() > 0) {
+        currentTyped = currentTyped.substring(0, currentTyped.length() - 1); // Remove the last character
+      }
+    } else {
+      // Adjusted positions for keys to include padding
+      for (int i = 0; i < 9; i++) {
+        float x = startX + (i % 3) * (keyWidth + padding * 2);
+        float y = startY + (i / 3) * (keyHeight + padding) - padding;
+        if (didMouseClick(x, y, keyWidth, keyHeight)) {
+          //String[] keys = {"a", "e", "h", "l", "n", "r", "t", "w", " "}; // Simplified keys for illustration
+          String[] keys = {"abcd", "efg", "hijk", "lm", "nopq", "rs", "tuv", "wxyz", " "}; // Space represents the space bar
+          currentkey = keys[i];
+          if(currentkey.equals(" ")){
+            currentTyped += " ";
+            zoomin = false;
+          }
+          else{zoomin = true;}
+          break;
+        }
       }
     }
+    //You are allowed to have a next button outside the 1" area
+    if (didMouseClick(600, 600, 200, 200)) //check if click is in next button
+    {
+      nextTrial(); //if so, advance to next trial
+    }
   }
-  //You are allowed to have a next button outside the 1" area
-  if (didMouseClick(600, 600, 200, 200)) //check if click is in next button
-  {
-    nextTrial(); //if so, advance to next trial
+  else if(zoomin && (currentkey.equals(""))){
+    zoomin = false;
   }
-}
+  else{
+    float keyWidth = sizeOfInputArea / 3;
+    float keyHeight = sizeOfInputArea / 5;
+    float startX = width / 2 - sizeOfInputArea / 2;
+    float startY = height / 2 - sizeOfInputArea / 2 + keyHeight; // Start from the second row
+    float padding = 5;
+  
+    // Adjust for padding around the keys
+    keyWidth -= padding * 2;
+    keyHeight -= padding;
+    
+    int currentlen = currentkey.length();
+    String[] keys = new String[currentkey.length()];
+          for (int j = 0; j < currentkey.length(); j++) {
+              keys[j] = String.valueOf(currentkey.charAt(j));
+          }
+    for (int i = 0; i < currentlen; i++) {
+        float x = startX + (i % 3) * (keyWidth + padding * 2);
+        float y = startY + (i / 3) * (keyHeight + padding) - padding;
+        if (didMouseClick(x, y, keyWidth, keyHeight)) {
+          //String[] keys = {"a", "e", "h", "l", "n", "r", "t", "w", " "}; // Simplified keys for illustration
+          //String[] keys = {"abcd", "efg", "hijk", "lm", "nopq", "rs", "tuv", "wxyz", " "}; // Space represents the space bar
+          currentkey = keys[i];
+          currentTyped += keys[i];
+          zoomin = false;
+          break;
+        }
+    zoomin = false;
+  }
+}}
 
 
 void nextTrial()
